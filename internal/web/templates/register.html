@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Регистрация — Svaha</title>
+  {{template "pageStyles"}}
+</head>
+<body>
+  <main class="registration">
+    <h1>Регистрация</h1>
+    {{if .}}<p class="notice" role="status">{{.}}</p>{{end}}
+    <form action="/register" method="post">
+      <label>Имя
+        <input name="first_name" autocomplete="given-name" required>
+      </label>
+      <div class="field-row">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Телефон (необязательно)
+          <input name="phone" type="tel" autocomplete="tel">
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Дата рождения
+          <input name="birth_date" type="date" autocomplete="bday" required>
+        </label>
+        <label>Город (необязательно)
+          <input name="city" autocomplete="address-level2">
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Пол
+          <select name="gender" required>
+            <option value="" selected disabled>Выберите вариант</option>
+            <option value="female">Женский</option>
+            <option value="male">Мужской</option>
+            <option value="other">Другой вариант</option>
+            <option value="undisclosed">Предпочитаю не указывать</option>
+          </select>
+        </label>
+        <label>Кого вы ищете (необязательно)
+          <select name="looking_for">
+            <option value="" selected>Выберите вариант</option>
+            <option value="women">Женщин</option>
+            <option value="men">Мужчин</option>
+            <option value="anyone">Не имеет значения</option>
+          </select>
+        </label>
+      </div>
+      <label>Логин
+        <input name="username" autocomplete="username" required>
+      </label>
+      <label>Пароль
+        <input name="password" type="password" autocomplete="new-password" required>
+      </label>
+      <button type="submit">Зарегистрироваться</button>
+    </form>
+    <p><a href="/">Вернуться ко входу</a></p>
+  </main>
+</body>
+</html>

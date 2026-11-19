@@ -1,0 +1,77 @@
+{{define "pageStyles"}}
+<style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: #f6f2f5;
+      color: #281d26;
+      font: 1rem/1.5 system-ui, sans-serif;
+    }
+    main {
+      width: min(100%, 25rem);
+      padding: clamp(1.25rem, 5vw, 2rem);
+      background: #fff;
+      border: 1px solid #e8dce5;
+      border-radius: 1rem;
+    }
+    h1 { margin: 0 0 1.5rem; font-size: 1.75rem; }
+    form { display: grid; gap: 1rem; }
+    label { display: grid; gap: .375rem; }
+    .registration { width: min(100%, 36rem); }
+    .field-row { display: grid; gap: 1rem; }
+    @media (min-width: 36rem) {
+      .field-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    input, select, button {
+      width: 100%;
+      min-width: 0;
+      min-height: 2.75rem;
+      padding: .625rem .75rem;
+      border: 1px solid #9c8796;
+      border-radius: .5rem;
+      font: inherit;
+    }
+    button {
+      background: #892952;
+      color: #fff;
+      border-color: #892952;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: #702043; }
+    :focus-visible { outline: 2px solid #892952; outline-offset: 3px; }
+    a { color: #702043; }
+    .notice { color: #702043; }
+  </style>
+{{end}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход в Svaha</title>
+  {{template "pageStyles"}}
+</head>
+<body>
+  <main>
+    <h1>Вход в Svaha</h1>
+    {{if .}}<p class="notice" role="status">{{.}}</p>{{end}}
+    <section aria-label="Вход">
+      <form action="/" method="post">
+        <label>Логин
+          <input name="username" autocomplete="username" required>
+        </label>
+        <label>Пароль
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Войти</button>
+      </form>
+    </section>
+    <p><a href="/register">Зарегистрироваться</a></p>
+  </main>
+</body>
+</html>
