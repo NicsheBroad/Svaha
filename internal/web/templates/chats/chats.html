@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Чаты — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .chats { width: min(100%, 36rem); }
+    .chat-list { display: grid; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+    .chat-list a { display: block; padding: .75rem 1rem; background: #fcf8fa; border: 1px solid #e8dce5; border-radius: .5rem; overflow-wrap: anywhere; }
+    .chat-list a:hover { background: #f3dce8; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "chats"}}
+  <main class="chats">
+    <h1>Чаты</h1>
+    {{if .}}
+    <ul class="chat-list">
+      {{range .}}<li><a href="/chats/{{.ID}}">{{.FirstName}}</a></li>{{end}}
+    </ul>
+    {{else}}
+    <p>Здесь появятся чаты с людьми, которые лайкнули вас в ответ.</p>
+    <a href="/search">Перейти к поиску</a>
+    {{end}}
+  </main>
+</body>
+</html>

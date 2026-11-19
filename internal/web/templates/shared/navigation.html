@@ -1,0 +1,10 @@
+{{define "mainNavigation"}}
+<header class="site-header">
+  <nav class="site-nav" aria-label="Основная навигация">
+    <a href="/search"{{if eq . "search"}} aria-current="page"{{else if eq . "people"}} aria-current="true"{{end}}>Поиск людей</a>
+    <a href="/likes"{{if eq . "likes"}} aria-current="page"{{else if eq . "liked-person"}} aria-current="true"{{end}}>Кто меня лайкнул</a>
+    <a href="/chats"{{if eq . "chats"}} aria-current="page"{{else if eq . "chat"}} aria-current="true"{{end}}>Чаты</a>
+    <a href="/profile"{{if eq . "profile"}} aria-current="page"{{else if eq . "profile-edit"}} aria-current="true"{{end}}>Мой профиль</a>
+  </nav>
+</header>
+{{end}}

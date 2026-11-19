@@ -1,41 +1,40 @@
 package web
 
 import (
+	"bytes"
 	"embed"
 	"html/template"
+	"log"
 	"net/http"
+
+	"svaha/internal/postgres"
 )
 
-//go:embed templates/*.html
+//go:embed templates
 var templateFiles embed.FS
 
-var pageTemplates = template.Must(template.ParseFS(templateFiles, "templates/*.html"))
+var pageTemplates = template.Must(template.New("").Funcs(template.FuncMap{"photoNumber": photoNumber}).ParseFS(templateFiles, "templates/*/*.html"))
 
-// NewHandler регистрирует маршруты входа и регистрации.
-func NewHandler() http.Handler {
+// NewHandler подключает маршруты приложения и защищает формы от сторонних запросов.
+func NewHandler(store *postgres.Store) http.Handler {
 	mux := http.NewServeMux()
-	// Показывает форму входа.
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
-		renderPage(w, "login.html", http.StatusOK, "")
-	})
-	// Сообщает, что вход пока недоступен.
-	mux.HandleFunc("POST /{$}", func(w http.ResponseWriter, _ *http.Request) {
-		renderPage(w, "login.html", http.StatusNotImplemented, "Вход пока недоступен.")
-	})
-	// Показывает форму регистрации.
-	mux.HandleFunc("GET /register", func(w http.ResponseWriter, _ *http.Request) {
-		renderPage(w, "register.html", http.StatusOK, "")
-	})
-	// Сообщает, что регистрация пока недоступна.
-	mux.HandleFunc("POST /register", func(w http.ResponseWriter, _ *http.Request) {
-		renderPage(w, "register.html", http.StatusNotImplemented, "Регистрация пока недоступна.")
-	})
-	return mux
+	registerAuthRoutes(mux, store)
+	registerProfileRoutes(mux, store)
+	registerSearchRoute(mux, store)
+	registerPeopleRoutes(mux, store)
+	registerChatRoutes(mux, store)
+	return http.NewCrossOriginProtection().Handler(mux)
 }
 
-// renderPage отправляет HTML-страницу с заданным статусом и сообщением.
-func renderPage(w http.ResponseWriter, templateName string, status int, notice string) {
+// renderPage рендерит страницу перед отправкой ответа, чтобы обработать ошибки шаблона.
+func renderPage(w http.ResponseWriter, templateName string, status int, data any) {
+	var page bytes.Buffer
+	if err := pageTemplates.ExecuteTemplate(&page, templateName, data); err != nil {
+		log.Printf("Рендеринг %s: %v", templateName, err)
+		http.Error(w, "Не удалось открыть страницу.", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	_ = pageTemplates.ExecuteTemplate(w, templateName, notice)
+	_, _ = page.WriteTo(w)
 }

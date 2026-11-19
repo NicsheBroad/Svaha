@@ -1,0 +1,40 @@
+{{define "chatRefreshScript"}}
+<script>
+// Подключает автоматическое обновление открытого чата.
+(() => {
+  const history = document.getElementById("chat-history");
+  history.scrollTop = history.scrollHeight;
+  let loading = false;
+
+  // Обновляет сообщения, сохраняя набранный текст и позицию при чтении истории.
+  window.setInterval(async () => {
+    if (loading || document.hidden) return;
+    loading = true;
+    try {
+      const response = await fetch(window.location.pathname, { cache: "no-store" });
+      if (response.redirected || response.status === 404) {
+        window.location.replace(response.redirected ? response.url : "/chats");
+        return;
+      }
+      if (!response.ok) return;
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      const updated = page.getElementById("chat-history");
+      if (!updated || updated.innerHTML === history.innerHTML) return;
+      if (history.contains(document.activeElement) || history.querySelector("details[open]")) return;
+      // Не сбрасывает воспроизведение при поступлении нового сообщения.
+      for (const player of history.querySelectorAll("audio, video")) {
+        if (!player.paused && !player.ended) return;
+      }
+      const atBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 32;
+      const position = history.scrollTop;
+      history.replaceChildren(...updated.childNodes);
+      history.scrollTop = atBottom ? history.scrollHeight : position;
+    } catch {
+      // Следующая проверка повторит запрос после восстановления связи.
+    } finally {
+      loading = false;
+    }
+  }, 4000);
+})();
+</script>
+{{end}}

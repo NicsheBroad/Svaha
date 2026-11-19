@@ -1,0 +1,144 @@
+{{define "chatVoiceScript"}}
+<script>
+// Записывает голос и прикрепляет запись к обычной форме отправки.
+(() => {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder || !window.DataTransfer) return;
+
+  const control = document.getElementById("record-voice");
+  const input = document.getElementById("chat-attachment");
+  const voice = document.getElementById("chat-voice");
+  const preview = document.getElementById("voice-preview");
+  const status = document.getElementById("voice-status");
+  const send = document.getElementById("send-message");
+  const formats = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
+  const maxSize = 20 * 1024 * 1024;
+  const maxDuration = 120000;
+  let recorder = null;
+  let stream = null;
+  let timeout;
+  let previewURL = "";
+
+  control.hidden = false;
+
+  // Сбрасывает предварительное прослушивание после выбора другого файла.
+  const clearPreview = () => {
+    voice.value = "";
+    preview.pause();
+    preview.removeAttribute("src");
+    preview.hidden = true;
+    if (previewURL) URL.revokeObjectURL(previewURL);
+    previewURL = "";
+  };
+
+  // Освобождает микрофон и снова разрешает отправку формы.
+  const releaseMicrophone = () => {
+    clearTimeout(timeout);
+    if (stream) {
+      for (const track of stream.getTracks()) track.stop();
+    }
+    recorder = null;
+    stream = null;
+    control.disabled = false;
+    input.disabled = false;
+    send.disabled = false;
+    control.textContent = "Записать голос";
+  };
+
+  // При ручном выборе файла отправляет его как обычное вложение.
+  input.addEventListener("change", () => {
+    clearPreview();
+    status.textContent = "";
+  });
+
+  // Запрашивает микрофон по нажатию и останавливает запись по повторному нажатию.
+  control.addEventListener("click", async () => {
+    if (recorder?.state === "recording") {
+      control.disabled = true;
+      recorder.stop();
+      return;
+    }
+
+    control.disabled = true;
+    input.disabled = true;
+    send.disabled = true;
+    status.textContent = "Запрашиваю доступ к микрофону…";
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let format = "";
+      for (const option of formats) {
+        if (typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(option)) {
+          format = option;
+          break;
+        }
+      }
+      recorder = format ? new MediaRecorder(stream, { mimeType: format }) : new MediaRecorder(stream);
+      const activeRecorder = recorder;
+      const chunks = [];
+      let failed = false;
+
+      // Собирает фрагменты записи.
+      activeRecorder.addEventListener("dataavailable", event => {
+        if (event.data.size > 0) chunks.push(event.data);
+      });
+      // Освобождает микрофон, если запись прервалась с ошибкой.
+      activeRecorder.addEventListener("error", () => {
+        failed = true;
+        releaseMicrophone();
+        status.textContent = "Не удалось записать звук.";
+      });
+      // Создаёт файл и показывает предпросмотр перед отправкой.
+      activeRecorder.addEventListener("stop", () => {
+        if (failed || recorder !== activeRecorder) return;
+        releaseMicrophone();
+        try {
+          const type = (activeRecorder.mimeType || chunks[0]?.type || "").split(";")[0];
+          const extensions = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a" };
+          const extension = extensions[type];
+          if (!extension) {
+            status.textContent = "Браузер записал звук в неподдерживаемом формате.";
+            return;
+          }
+          const file = new File(chunks, "golovoe-soobshchenie." + extension, { type });
+          if (file.size === 0 || file.size > maxSize) {
+            status.textContent = "Запись пуста или превышает 20 МБ.";
+            return;
+          }
+          const transfer = new DataTransfer();
+          transfer.items.add(file);
+          input.files = transfer.files;
+          clearPreview();
+          voice.value = "yes";
+          previewURL = URL.createObjectURL(file);
+          preview.src = previewURL;
+          preview.hidden = false;
+          status.textContent = "Запись готова. Прослушайте её или нажмите «Отправить».";
+        } catch {
+          status.textContent = "Не удалось прикрепить запись.";
+        }
+      });
+
+      activeRecorder.start();
+      control.disabled = false;
+      control.textContent = "Остановить запись";
+      status.textContent = "Идёт запись, до 2 минут.";
+      // Останавливает запись по истечении лимита времени.
+      timeout = setTimeout(() => {
+        if (activeRecorder.state === "recording") activeRecorder.stop();
+      }, maxDuration);
+    } catch {
+      releaseMicrophone();
+      status.textContent = "Не удалось получить доступ к микрофону.";
+    }
+  });
+
+  // Освобождает микрофон при уходе со страницы.
+  window.addEventListener("pagehide", () => {
+    releaseMicrophone();
+    if (previewURL) {
+      input.value = "";
+      clearPreview();
+    }
+  });
+})();
+</script>
+{{end}}

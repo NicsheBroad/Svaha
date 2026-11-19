@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Редактирование сообщения — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .message-edit { width: min(100%, 36rem); }
+    .message-edit h1 { margin-top: .5rem; }
+    .message-edit textarea { width: 100%; min-height: 6rem; padding: .625rem .75rem; border: 1px solid #9c8796; border-radius: .5rem; font: inherit; resize: vertical; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "chat"}}
+  <main class="message-edit">
+    <a href="/chats/{{.PartnerID}}">Вернуться к чату</a>
+    <h1>Редактирование сообщения</h1>
+    {{if .Notice}}<p class="notice" role="alert">{{.Notice}}</p>{{end}}
+    <form method="post" action="/chats/{{.PartnerID}}/messages/{{.Message.ID}}/edit">
+      {{if .Message.Attachment.Name}}<p>Вложение: {{.Message.Attachment.Name}}</p>{{end}}
+      <label>{{if .Message.Attachment.MIME}}Подпись{{else}}Сообщение{{end}}
+        <textarea rows="4" name="message" maxlength="2000"{{if not .Message.Attachment.MIME}} required{{end}}>{{.Message.Body}}</textarea>
+      </label>
+      <button type="submit">Сохранить</button>
+    </form>
+  </main>
+</body>
+</html>

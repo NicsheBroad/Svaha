@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Редактирование профиля — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    textarea { width: 100%; min-height: 5rem; padding: .625rem .75rem; border: 1px solid #9c8796; border-radius: .5rem; font: inherit; resize: vertical; }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
+    .photo-preview { width: 100%; aspect-ratio: 1; border-radius: .5rem; object-fit: cover; }
+    .remove-photo { display: flex; align-items: center; }
+    .remove-photo input { width: auto; min-height: auto; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "profile-edit"}}
+  <main class="registration">
+    <h1>Редактирование профиля</h1>
+    {{if .Notice}}<p class="notice" role="alert">{{.Notice}}</p>{{end}}
+    <form action="/profile/edit" method="post" enctype="multipart/form-data">
+      {{if .PhotoIDs}}
+      <ul class="photo-grid" aria-label="Текущие фотографии">
+        {{range $index, $id := .PhotoIDs}}
+        <li>
+          <img class="photo-preview" src="/profile/photo/{{$id}}" alt="Фото {{$index | photoNumber}}">
+          <label class="remove-photo"><input name="remove_photo" type="checkbox" value="{{$id}}" aria-label="Удалить фото {{$index | photoNumber}}"> Удалить</label>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+      <label>Добавить фотографии
+        <input name="photos" type="file" accept="image/jpeg,image/png" multiple aria-describedby="photo-format">
+        <small id="photo-format">В галерее {{len .PhotoIDs}} из {{.MaxPhotos}} фото. JPEG или PNG, до 4 МБ и 2048 × 2048 пикселей на файл.</small>
+      </label>
+      <div class="field-row">
+        <label>Имя
+          <input name="first_name" autocomplete="given-name" maxlength="100" value="{{.FirstName}}" required>
+        </label>
+        <label>Дата рождения
+          <input name="birth_date" type="date" autocomplete="bday" value="{{.BirthDate}}" required>
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" maxlength="254" value="{{.Email}}" required>
+        </label>
+        <label>Телефон
+          <input name="phone" type="tel" autocomplete="tel" maxlength="40" value="{{.Phone}}">
+        </label>
+      </div>
+      <label>Город
+        <input name="city" autocomplete="address-level2" maxlength="100" value="{{.City}}">
+      </label>
+      <div class="field-row">
+        <label>Пол
+          <select name="gender" required>
+            <option value="" disabled {{if not .Gender}}selected{{end}}>Выберите вариант</option>
+            <option value="female" {{if eq .Gender "female"}}selected{{end}}>Женский</option>
+            <option value="male" {{if eq .Gender "male"}}selected{{end}}>Мужской</option>
+            <option value="other" {{if eq .Gender "other"}}selected{{end}}>Другой вариант</option>
+            <option value="undisclosed" {{if eq .Gender "undisclosed"}}selected{{end}}>Предпочитаю не указывать</option>
+          </select>
+        </label>
+        <label>Кого вы ищете
+          <select name="looking_for">
+            <option value="" {{if not .LookingFor}}selected{{end}}>Не указано</option>
+            <option value="women" {{if eq .LookingFor "women"}}selected{{end}}>Женщин</option>
+            <option value="men" {{if eq .LookingFor "men"}}selected{{end}}>Мужчин</option>
+            <option value="anyone" {{if eq .LookingFor "anyone"}}selected{{end}}>Не имеет значения</option>
+          </select>
+        </label>
+      </div>
+      <label>О себе
+        <textarea name="bio" maxlength="1500" rows="5">{{.Bio}}</textarea>
+      </label>
+      <label>Увлечения
+        <textarea name="hobbies" maxlength="500" rows="3">{{.Hobbies}}</textarea>
+      </label>
+      <button type="submit">Сохранить изменения</button>
+      <a href="/profile">Отмена</a>
+    </form>
+  </main>
+</body>
+</html>

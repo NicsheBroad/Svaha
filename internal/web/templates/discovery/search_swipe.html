@@ -1,0 +1,81 @@
+{{define "searchSwipeScript"}}
+<script>
+// Подключает свайп к карточке, оставляя обычный клик для открытия анкеты.
+(() => {
+  const link = document.getElementById("search-card-link");
+  const card = document.getElementById("swipe-card");
+  const form = document.getElementById("reaction-form");
+  const feedback = document.getElementById("swipe-feedback");
+  if (!window.PointerEvent || typeof form.requestSubmit !== "function") return;
+  document.getElementById("swipe-hint").hidden = false;
+
+  link.classList.add("swipe-enabled");
+  let drag = null;
+  let suppressClick = false;
+  const clickTolerance = 8;
+  const threshold = Math.max(52, Math.min(100, card.offsetWidth * .22));
+
+  // Возвращает карточку на место после короткого или отменённого жеста.
+  const reset = () => {
+    drag = null;
+    card.classList.remove("dragging");
+    card.style.removeProperty("--swipe-offset");
+    card.style.removeProperty("--swipe-angle");
+    feedback.hidden = true;
+  };
+
+  // Отменяет клик после перетаскивания, сохраняя переход по нажатию клавиши Enter.
+  link.addEventListener("click", event => {
+    if (suppressClick && (event.detail !== 0 || event.pointerType)) event.preventDefault();
+  });
+
+  // Запоминает начало жеста и удерживает указатель до его завершения.
+  card.addEventListener("pointerdown", event => {
+    if (!event.isPrimary || event.button !== 0 || drag) return;
+    suppressClick = false;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    card.setPointerCapture(drag.id);
+    card.classList.add("dragging");
+  });
+
+  // Смещает карточку и показывает предварительную реакцию.
+  card.addEventListener("pointermove", event => {
+    if (event.pointerId !== drag?.id) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    suppressClick ||= Math.hypot(dx, dy) >= clickTolerance;
+    const horizontal = Math.abs(dx) > Math.abs(dy);
+    const offset = horizontal ? Math.max(-110, Math.min(110, dx)) : 0;
+    card.style.setProperty("--swipe-offset", offset + "px");
+    card.style.setProperty("--swipe-angle", offset / 16 + "deg");
+    feedback.hidden = !horizontal || Math.abs(dx) < threshold;
+    feedback.textContent = dx > 0 ? "Нравится" : "Не нравится";
+  });
+
+  // Отправляет ту же форму, которую отправляет соответствующая кнопка.
+  card.addEventListener("pointerup", event => {
+    if (event.pointerId !== drag?.id) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    suppressClick ||= Math.hypot(dx, dy) >= clickTolerance;
+    reset();
+    if (Math.abs(dx) < threshold || Math.abs(dx) <= Math.abs(dy) * 1.25) return;
+    const choice = dx > 0 ? "like" : "pass";
+    form.requestSubmit(form.querySelector('button[value="' + choice + '"]'));
+  });
+
+  // Сбрасывает жест, который браузер прервал, например при прокрутке страницы.
+  card.addEventListener("pointercancel", event => {
+    if (event.pointerId !== drag?.id) return;
+    suppressClick = true;
+    reset();
+  });
+  // Сбрасывает жест, если захват указателя завершился до отпускания.
+  card.addEventListener("lostpointercapture", event => {
+    if (event.pointerId !== drag?.id) return;
+    suppressClick = true;
+    reset();
+  });
+})();
+</script>
+{{end}}

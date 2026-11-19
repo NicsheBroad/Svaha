@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Поиск людей — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .search { width: min(100%, 52rem); }
+    .search-card-link { display: block; color: inherit; text-decoration: none; border-radius: 1rem; }
+    .search-card-link:hover .card-heading h2 { text-decoration: underline; }
+    .search-form button { width: auto; justify-self: start; }
+    .deck { max-width: 27rem; margin: 1.75rem auto 0; }
+    .swipe-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #e8dce5;
+      border-radius: 1rem;
+      background: #fcf8fa;
+      overflow-wrap: anywhere;
+      touch-action: pan-y;
+      user-select: none;
+      cursor: grab;
+      transform: translateX(var(--swipe-offset, 0px)) rotate(var(--swipe-angle, 0deg));
+      transition: transform .18s ease-out;
+    }
+    .search-card-link:not(.swipe-enabled) .swipe-card { cursor: pointer; }
+    .swipe-card.dragging { transition: none; cursor: grabbing; }
+    .card-heading { padding: 1.5rem; background: #f3dce8; }
+    .card-heading h2, .card-heading p, .card-details p { margin: 0; }
+    .card-heading p { color: #695761; }
+    .card-details { padding: 1rem 1.5rem; }
+    .card-details p { white-space: pre-wrap; }
+    .initial {
+      display: grid;
+      place-items: center;
+      width: 4rem;
+      height: 4rem;
+      margin-bottom: .75rem;
+      border-radius: 50%;
+      background: #fff;
+      color: #702043;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    .swipe-feedback { position: absolute; top: .75rem; right: .75rem; padding: .25rem .625rem; border-radius: .375rem; background: #fff; font-weight: 600; }
+    .reaction-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: .75rem; }
+    .reaction-pass { background: #fff; color: #702043; }
+    .reaction-pass:hover { background: #f6f2f5; }
+    .swipe-hint { margin: .75rem 0 0; text-align: center; color: #695761; font-size: .875rem; }
+    @media (prefers-reduced-motion: reduce) {
+      .swipe-card { transition: none; }
+    }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "search"}}
+  <main class="search">
+    <h1>Поиск людей</h1>
+    <form action="/search" method="get" class="search-form">
+      <div class="field-row">
+        <label>Кого вы ищете
+          <select name="looking_for">
+            <option value="anyone" {{if eq .LookingFor "anyone"}}selected{{end}}>Всех</option>
+            <option value="women" {{if eq .LookingFor "women"}}selected{{end}}>Женщин</option>
+            <option value="men" {{if eq .LookingFor "men"}}selected{{end}}>Мужчин</option>
+          </select>
+        </label>
+        <label>Город
+          <input name="city" value="{{.City}}" maxlength="100" placeholder="Любой город">
+        </label>
+      </div>
+      <button type="submit">Найти</button>
+    </form>
+    {{if .Notice}}
+    <p class="notice" role="alert">{{.Notice}}</p>
+    {{else if .Profile}}
+    <section class="deck" aria-label="Анкета">
+      <a class="search-card-link" id="search-card-link" href="/people/{{.Profile.ID}}?looking_for={{.LookingFor}}&amp;city={{.City}}" aria-labelledby="candidate-name" draggable="false">
+        <article class="swipe-card" id="swipe-card" aria-labelledby="candidate-name">
+          <div class="card-heading">
+            <div class="initial" aria-hidden="true">{{.Initial}}</div>
+            <h2 id="candidate-name">{{.Profile.FirstName}}</h2>
+            {{if .Profile.City}}<p>{{.Profile.City}}</p>{{end}}
+          </div>
+          {{if .Profile.Hobbies}}
+          <div class="card-details">
+            <strong>Увлечения</strong>
+            <p>{{.Profile.Hobbies}}</p>
+          </div>
+          {{end}}
+          <span class="swipe-feedback" id="swipe-feedback" aria-hidden="true" hidden></span>
+        </article>
+      </a>
+      <form action="{{.ReactionURL}}" method="post" class="reaction-form" id="reaction-form">
+        <input type="hidden" name="profile_id" value="{{.Profile.ID}}">
+        <button type="submit" name="choice" value="pass" class="reaction-pass">Не нравится</button>
+        <button type="submit" name="choice" value="like">Нравится</button>
+      </form>
+      <p class="swipe-hint" id="swipe-hint" hidden>Смахните вправо, если анкета нравится, или влево, чтобы пропустить.</p>
+    </section>
+    {{else}}
+    <p>Больше подходящих анкет нет. Попробуйте изменить фильтры.</p>
+    {{end}}
+  </main>
+  {{if .Profile}}{{template "searchSwipeScript"}}{{end}}
+</body>
+</html>

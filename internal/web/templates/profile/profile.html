@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мой профиль — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .profile { width: min(100%, 32rem); }
+    .profile-header { display: flex; align-items: center; gap: 1rem; }
+    .avatar {
+      display: grid;
+      place-items: center;
+      flex: 0 0 4rem;
+      height: 4rem;
+      border-radius: 50%;
+      background: #f3dce8;
+      color: #702043;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    .avatar { width: 4rem; object-fit: cover; }
+    .profile h1, .username { margin: 0; overflow-wrap: anywhere; }
+    .username, .details dt { color: #695761; }
+    .details { margin: 1.5rem 0; }
+    .details div { padding: .75rem 0; border-top: 1px solid #e8dce5; }
+    .details dt { font-size: .875rem; }
+    .details dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; padding: 0; list-style: none; }
+    .gallery img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: .5rem; }
+    .profile-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .profile-actions { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .logout button { width: auto; justify-self: start; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "profile"}}
+  <main class="profile">
+    <header class="profile-header">
+      {{if .PhotoIDs}}
+      <img class="avatar" src="/profile/photo/{{index .PhotoIDs 0}}" alt="Основное фото профиля">
+      {{else}}
+      <div class="avatar" aria-hidden="true">{{.Initial}}</div>
+      {{end}}
+      <div>
+        <h1>{{.FirstName}}</h1>
+        <p class="username">@{{.Username}}</p>
+      </div>
+    </header>
+    <dl class="details field-row" aria-label="Данные профиля">
+      <div><dt>Дата рождения</dt><dd><time datetime="{{.BirthDate}}">{{.BirthDate}}</time></dd></div>
+      {{if .City}}<div><dt>Город</dt><dd>{{.City}}</dd></div>{{end}}
+      <div><dt>Электронная почта</dt><dd>{{.Email}}</dd></div>
+      {{if .Phone}}<div><dt>Телефон</dt><dd>{{.Phone}}</dd></div>{{end}}
+      {{if or (eq .Gender "female") (eq .Gender "male") (eq .Gender "other")}}
+      <div><dt>Пол</dt><dd>{{if eq .Gender "female"}}Женский{{else if eq .Gender "male"}}Мужской{{else}}Другой вариант{{end}}</dd></div>
+      {{end}}
+      {{if or (eq .LookingFor "women") (eq .LookingFor "men") (eq .LookingFor "anyone")}}
+      <div><dt>Кого вы ищете</dt><dd>{{if eq .LookingFor "women"}}Женщин{{else if eq .LookingFor "men"}}Мужчин{{else}}Не имеет значения{{end}}</dd></div>
+      {{end}}
+    </dl>
+    {{if .PhotoIDs}}
+    <section>
+      <h2>Фотографии</h2>
+      <ul class="gallery">
+        {{range $index, $id := .PhotoIDs}}
+        <li><a href="/profile/photo/{{$id}}"><img src="/profile/photo/{{$id}}" alt="Фото {{$index | photoNumber}}" loading="lazy"></a></li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+    {{if .Bio}}
+    <section><h2>О себе</h2><p class="profile-text">{{.Bio}}</p></section>
+    {{end}}
+    {{if .Hobbies}}
+    <section><h2>Увлечения</h2><p class="profile-text">{{.Hobbies}}</p></section>
+    {{end}}
+    <div class="profile-actions">
+      <a href="/profile/edit">Редактировать профиль</a>
+      <form class="logout" action="/logout" method="post">
+        <button type="submit">Выйти</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

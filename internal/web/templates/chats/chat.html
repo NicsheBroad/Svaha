@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Чат с {{.Partner.FirstName}} — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .chat { width: min(100%, 38rem); }
+    .chat-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1rem; }
+    .chat h1 { margin-top: .5rem; overflow-wrap: anywhere; }
+    .chat-history { display: grid; gap: .6rem; max-height: 24rem; overflow-y: auto; padding: .25rem .25rem .75rem; }
+    .bubble { justify-self: start; width: fit-content; max-width: 85%; padding: .5rem .75rem; border-radius: .75rem; background: #f6f2f5; }
+    .bubble.own { justify-self: end; background: #f3dce8; }
+    .bubble { min-width: 0; overflow-wrap: anywhere; }
+    .message-media { margin-top: .375rem; }
+    .message-media img, .message-media video { display: block; max-width: 100%; max-height: 20rem; border-radius: .375rem; }
+    .message-media audio, .voice-preview { width: 16rem; max-width: 100%; }
+    .message-media > a { display: block; margin-top: .25rem; }
+    .message-actions { font-size: .875rem; margin-top: .375rem; }
+    .message-actions summary { color: #702043; cursor: pointer; }
+    .message-actions button { width: auto; padding: .25rem .5rem; min-height: 2rem; }
+    .message-actions form { margin-top: .25rem; }
+    .voice-status:empty { display: none; }
+    .bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .bubble time { display: block; margin-top: .125rem; font-size: .75rem; color: #695761; }
+    .chat-history > a { justify-self: start; }
+    .chat-form { margin-top: 1rem; }
+    .chat-form textarea { width: 100%; padding: .625rem .75rem; min-height: 5rem; border: 1px solid #9c8796; border-radius: .5rem; font: inherit; resize: vertical; }
+    .chat-form button { width: auto; justify-self: end; }
+    .chat-form .voice-button { justify-self: start; }
+    .delete-chat { margin-top: 1.25rem; padding-top: .75rem; border-top: 1px solid #e8dce5; }
+    .delete-chat summary { width: fit-content; color: #702043; cursor: pointer; }
+    .delete-chat p { margin: .75rem 0; }
+    .delete-chat button { width: auto; justify-self: start; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "chat"}}
+  <main class="chat">
+    <div class="chat-links">
+      <a href="/chats">Все чаты</a>
+      <a href="/people/{{.Partner.ID}}?from=chat">Профиль собеседника</a>
+    </div>
+    <h1>{{.Partner.FirstName}}</h1>
+    <section class="chat-history" id="chat-history" aria-label="Переписка" aria-live="polite">
+      {{if .BeforeID}}<a href="?before={{.BeforeID}}">Более ранние сообщения</a>{{end}}
+      {{if not .Latest}}<a href="/chats/{{.Partner.ID}}">К последним сообщениям</a>{{end}}
+      {{range .Messages}}
+      <article class="bubble{{if .Own}} own{{end}}" aria-label="{{if .Own}}Ваше сообщение{{else}}Входящее сообщение{{end}}">
+        {{if .Body}}<p>{{.Body}}</p>{{end}}
+        {{if .Attachment.MIME}}
+        <div class="message-media">
+          {{if .Attachment.Voice}}<p>Голосовое сообщение</p>{{end}}
+          {{if eq .Attachment.Kind "image"}}
+          <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment"><img src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" alt="{{.Attachment.Name}}" loading="lazy"></a>
+          {{else if eq .Attachment.Kind "audio"}}
+          <audio src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" controls preload="none" aria-label="{{if .Attachment.Voice}}Голосовое сообщение{{else}}{{.Attachment.Name}}{{end}}"></audio>
+          {{else if eq .Attachment.Kind "video"}}
+          <video src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" controls preload="none" playsinline aria-label="{{.Attachment.Name}}"></video>
+          {{end}}
+          <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment?download=1">Скачать {{.Attachment.Name}}</a>
+        </div>
+        {{end}}
+        <time datetime="{{.SentAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.SentAt.Local.Format "02.01.2006 15:04"}}{{if .Edited}} · изменено{{end}}</time>
+        {{if .Own}}
+        <details class="message-actions">
+          <summary>Действия</summary>
+          <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/edit">Редактировать</a>
+          <details>
+            <summary>Удалить сообщение</summary>
+            <form method="post" action="/chats/{{$.Partner.ID}}/messages/{{.ID}}/delete">
+              <button type="submit">Удалить у обоих</button>
+            </form>
+          </details>
+        </details>
+        {{end}}
+      </article>
+      {{else}}
+      <p>Сообщений пока нет.</p>
+      {{end}}
+    </section>
+    {{if .Notice}}<p class="notice" role="alert">{{.Notice}}</p>{{end}}
+    <form class="chat-form" id="chat-form" method="post" action="/chats/{{.Partner.ID}}" enctype="multipart/form-data">
+      <label>Сообщение
+        <textarea name="message" rows="3" maxlength="2000">{{.Draft}}</textarea>
+      </label>
+      <label>Прикрепить фото, аудио или видео
+        <input id="chat-attachment" name="attachment" type="file" accept="image/jpeg,image/png,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/webm,video/mp4,video/webm,.wav,.m4a,.webm">
+        <small>Фото до 4 МБ. Аудио и видео до 20 МБ.</small>
+      </label>
+      <input type="hidden" id="chat-voice" name="voice">
+      <button class="voice-button" type="button" id="record-voice" hidden>Записать голос</button>
+      <audio class="voice-preview" id="voice-preview" controls hidden></audio>
+      <span class="voice-status" id="voice-status" role="status"></span>
+      <button type="submit" id="send-message">Отправить</button>
+    </form>
+    <details class="delete-chat">
+      <summary>Удалить чат</summary>
+      <p>Сообщения будут удалены у обоих участников, а лайки сбросятся. Чтобы снова открыть чат, нужно поставить друг другу новые лайки.</p>
+      <form method="post" action="/chats/{{.Partner.ID}}/delete">
+        <button type="submit">Подтвердить удаление</button>
+      </form>
+    </details>
+  </main>
+  {{if .Latest}}{{template "chatRefreshScript"}}{{end}}
+  {{template "chatVoiceScript"}}
+</body>
+</html>
