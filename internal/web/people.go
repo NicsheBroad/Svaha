@@ -19,6 +19,12 @@ type publicProfilePage struct {
 	BackURL    string
 	BackLabel  string
 	Navigation string
+	Reported   bool
+}
+
+type incomingLikesPage struct {
+	Profiles []postgres.SearchProfile
+	MatchID  string
 }
 
 // registerPeopleRoutes подключает входящие лайки, просмотр анкет и их фотографий.
@@ -31,7 +37,36 @@ func registerPeopleRoutes(mux *http.ServeMux, store *postgres.Store) {
 			http.Error(w, "Входящие лайки временно недоступны.", http.StatusInternalServerError)
 			return
 		}
-		renderPage(w, "likes.html", http.StatusOK, profiles)
+		page := incomingLikesPage{Profiles: profiles}
+		if id := r.URL.Query().Get("match"); publicProfileID.MatchString(id) {
+			matched, err := store.HasMatch(r.Context(), viewer.Username, id)
+			if err != nil {
+				log.Printf("Проверка нового совпадения: %v", err)
+			} else if matched {
+				page.MatchID = id
+			}
+		}
+		renderPage(w, "likes.html", http.StatusOK, page)
+	}))
+
+	// Ставит ответный лайк и предлагает открыть появившийся чат.
+	mux.HandleFunc("POST /likes/{id}/reply", withSession(store, func(w http.ResponseWriter, r *http.Request, viewer postgres.Viewer) {
+		id := r.PathValue("id")
+		if !publicProfileID.MatchString(id) {
+			http.NotFound(w, r)
+			return
+		}
+		matched, err := store.ReplyToLike(r.Context(), viewer.Username, id)
+		if err != nil {
+			log.Printf("Ответный лайк: %v", err)
+			http.Error(w, "Не удалось поставить лайк.", http.StatusInternalServerError)
+			return
+		}
+		target := "/likes"
+		if matched {
+			target += "?match=" + id
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
 	}))
 
 	// Показывает анкету другого пользователя без его контактных данных.
@@ -68,7 +103,7 @@ func registerPeopleRoutes(mux *http.ServeMux, store *postgres.Store) {
 
 // personPage подбирает ссылку возврата и активную вкладку по источнику перехода.
 func personPage(profile postgres.PublicProfile, query url.Values, preference string) publicProfilePage {
-	page := publicProfilePage{PublicProfile: profile}
+	page := publicProfilePage{PublicProfile: profile, Reported: query.Get("reported") == "1"}
 	switch query.Get("from") {
 	case "chat":
 		page.BackURL = "/chats/" + profile.ID

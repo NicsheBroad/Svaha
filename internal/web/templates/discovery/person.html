@@ -11,6 +11,9 @@
     .person-city { color: #695761; margin: .25rem 0 0; }
     .person-photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; padding: 0; list-style: none; }
     .person-photos img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: .5rem; }
+    .person-actions { border-top: 1px solid #e8dce5; margin-top: 1.25rem; padding-top: .75rem; }
+    .person-actions details { margin: .5rem 0; }
+    .person-actions textarea { min-height: 4rem; padding: .5rem; font: inherit; }
     .person-text { white-space: pre-wrap; }
   </style>
 </head>
@@ -29,6 +32,32 @@
     {{end}}
     {{if .Bio}}<section><h2>О себе</h2><p class="person-text">{{.Bio}}</p></section>{{end}}
     {{if .Hobbies}}<section><h2>Увлечения</h2><p class="person-text">{{.Hobbies}}</p></section>{{end}}
+    <div class="person-actions">
+      {{if .Reported}}<p class="notice" role="status">Жалоба отправлена.</p>{{end}}
+      <details>
+        <summary>Пожаловаться</summary>
+        <form method="post" action="/people/{{.ID}}/report">
+          <label>Причина
+            <select name="reason" required>
+              <option value="" selected disabled>Выберите причину</option>
+              <option value="spam">Спам</option>
+              <option value="harassment">Домогательства или оскорбления</option>
+              <option value="underage">Подозрение на возраст меньше 18 лет</option>
+              <option value="other">Другое</option>
+            </select>
+          </label>
+          <label>Комментарий <textarea name="details" maxlength="1000"></textarea></label>
+          <button type="submit">Отправить жалобу</button>
+        </form>
+      </details>
+      <details>
+        <summary>Заблокировать</summary>
+        <form method="post" action="/people/{{.ID}}/block">
+          <p>Ваши анкеты и чат будут скрыты друг от друга.</p>
+          <button type="submit">Подтвердить блокировку</button>
+        </form>
+      </details>
+    </div>
   </main>
 </body>
 </html>

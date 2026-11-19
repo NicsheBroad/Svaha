@@ -23,7 +23,7 @@ func (a ChatAttachment) Kind() string {
 }
 
 // SendChatMessage сохраняет текст и вложение в чате с взаимным лайком.
-func (s *Store) SendChatMessage(ctx context.Context, username, partnerID, body string, attachment ChatAttachment) error {
+func (s *Store) SendChatMessage(ctx context.Context, username, partnerID, nonce, body string, attachment ChatAttachment) error {
 	tx, partner, err := s.beginProfilePair(ctx, username, partnerID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrChatUnavailable
@@ -32,6 +32,32 @@ func (s *Store) SendChatMessage(ctx context.Context, username, partnerID, body s
 		return err
 	}
 	defer tx.Rollback()
+
+	reservation, err := tx.ExecContext(ctx, `
+  INSERT INTO chat_send_requests (sender, nonce, recipient)
+  SELECT viewer, $3, partner FROM mutual_matches
+  WHERE viewer = $1 AND partner = $2
+  ON CONFLICT (sender, nonce) DO NOTHING`, username, partner, nonce)
+	if err != nil {
+		return err
+	}
+	reserved, err := reservation.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if reserved == 0 {
+		var alreadySent bool
+		err := tx.QueryRowContext(ctx, `
+   SELECT EXISTS (SELECT 1 FROM chat_send_requests WHERE sender = $1 AND nonce = $2 AND recipient = $3)`,
+			username, nonce, partner).Scan(&alreadySent)
+		if err != nil {
+			return err
+		}
+		if alreadySent {
+			return nil
+		}
+		return ErrChatUnavailable
+	}
 
 	result, err := tx.ExecContext(ctx, `
   INSERT INTO chat_messages (sender, recipient, body, attachment_name, attachment_type, attachment_data, is_voice)
@@ -106,23 +132,4 @@ func (s *Store) mutateOwnChatMessage(ctx context.Context, username, partnerID st
 		return ErrMessageUnavailable
 	}
 	return tx.Commit()
-}
-
-// MessageAttachment загружает вложение по ID сообщения только для участников открытого чата.
-func (s *Store) MessageAttachment(ctx context.Context, username, partnerID string, id int64) (ChatAttachment, error) {
-	var attachment ChatAttachment
-	err := s.db.QueryRowContext(ctx, `
-  SELECT m.attachment_name, m.attachment_type, m.attachment_data, m.is_voice
-  FROM mutual_matches AS mm
-  JOIN users AS u ON u.username = mm.partner
-  JOIN chat_messages AS m ON (
-      (m.sender = mm.viewer AND m.recipient = mm.partner)
-      OR (m.sender = mm.partner AND m.recipient = mm.viewer)
-  )
-  WHERE mm.viewer = $1 AND u.search_id = $2 AND m.id = $3 AND m.attachment_data IS NOT NULL`,
-		username, partnerID, id).Scan(&attachment.Name, &attachment.MIME, &attachment.Data, &attachment.Voice)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ChatAttachment{}, ErrMessageUnavailable
-	}
-	return attachment, err
 }

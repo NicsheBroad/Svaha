@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Заблокированные анкеты — Svaha</title>
+  {{template "pageStyles"}}
+  <style>
+    .blocks { width: min(100%, 34rem); }
+    .blocks ul { padding: 0; list-style: none; }
+    .blocks li { padding: .75rem 0; border-top: 1px solid #e8dce5; }
+    .blocks button { width: auto; justify-self: start; }
+  </style>
+</head>
+<body class="with-navigation">
+  {{template "mainNavigation" "profile-edit"}}
+  <main class="blocks">
+    <a href="/profile">Мой профиль</a>
+    <h1>Заблокированные анкеты</h1>
+    {{if .}}
+    <ul>
+      {{range .}}<li>
+        <form method="post" action="/profile/blocks/{{.ID}}/unblock">
+          <strong>{{.FirstName}}</strong>
+          <button type="submit">Разблокировать</button>
+        </form>
+      </li>{{end}}
+    </ul>
+    {{else}}<p>Заблокированных анкет нет.</p>{{end}}
+  </main>
+</body>
+</html>

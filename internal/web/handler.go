@@ -22,6 +22,7 @@ func NewHandler(store *postgres.Store) http.Handler {
 	registerProfileRoutes(mux, store)
 	registerSearchRoute(mux, store)
 	registerPeopleRoutes(mux, store)
+	registerSafetyRoutes(mux, store)
 	registerChatRoutes(mux, store)
 	return http.NewCrossOriginProtection().Handler(mux)
 }

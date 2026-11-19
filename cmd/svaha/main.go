@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,16 +62,24 @@ func run(ctx context.Context, listenAddress string) (runErr error) {
 	}
 	defer store.Close()
 
+	listener, err := net.Listen("tcp", listenAddress)
+	if err != nil {
+		return fmt.Errorf("не удалось открыть адрес %s: %w", listenAddress, err)
+	}
+	defer listener.Close()
+
 	server := &http.Server{
 		Addr:              listenAddress,
 		Handler:           web.NewHandler(store),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		IdleTimeout:       time.Minute,
 	}
+	log.Printf("Страница входа доступна на http://%s", listener.Addr())
 	serverDone := make(chan error, 1)
 	// Запускает HTTP-сервер и передаёт результат в основной поток.
 	go func() {
-		log.Printf("Страница входа доступна на http://%s", listenAddress)
-		serverDone <- server.ListenAndServe()
+		serverDone <- server.Serve(listener)
 	}()
 
 	select {

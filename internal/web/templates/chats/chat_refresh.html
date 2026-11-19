@@ -5,21 +5,38 @@
   const history = document.getElementById("chat-history");
   history.scrollTop = history.scrollHeight;
   let loading = false;
+  const historyURL = window.location.pathname + "?view=history";
+  const readURL = window.location.pathname + "/read";
+  let lastRead = "";
+
+  // Отмечает полученное сообщение после обновления видимой истории.
+  const markRead = async (id) => {
+    if (!id || id === "0" || id === lastRead || document.hidden) return;
+    const response = await fetch(readURL, { method: "POST", body: new URLSearchParams({ message_id: id }) });
+    if (response.status === 204) lastRead = id;
+  };
 
   // Обновляет сообщения, сохраняя набранный текст и позицию при чтении истории.
   window.setInterval(async () => {
     if (loading || document.hidden) return;
     loading = true;
     try {
-      const response = await fetch(window.location.pathname, { cache: "no-store" });
+      const response = await fetch(historyURL, { cache: "no-store" });
       if (response.redirected || response.status === 404) {
         window.location.replace(response.redirected ? response.url : "/chats");
         return;
       }
       if (!response.ok) return;
-      const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      const updated = page.getElementById("chat-history");
-      if (!updated || updated.innerHTML === history.innerHTML) return;
+      const fragment = document.createElement("template");
+      fragment.innerHTML = await response.text();
+      const updated = fragment.content.querySelector("#chat-history");
+      if (!updated) return;
+      if (updated.innerHTML === history.innerHTML) {
+        if (history.scrollHeight - history.scrollTop - history.clientHeight < 32) {
+          await markRead(updated.dataset.lastIncoming);
+        }
+        return;
+      }
       if (history.contains(document.activeElement) || history.querySelector("details[open]")) return;
       // Не сбрасывает воспроизведение при поступлении нового сообщения.
       for (const player of history.querySelectorAll("audio, video")) {
@@ -29,6 +46,7 @@
       const position = history.scrollTop;
       history.replaceChildren(...updated.childNodes);
       history.scrollTop = atBottom ? history.scrollHeight : position;
+      if (atBottom) await markRead(updated.dataset.lastIncoming);
     } catch {
       // Следующая проверка повторит запрос после восстановления связи.
     } finally {

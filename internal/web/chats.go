@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/rand"
 	"errors"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ type chatPage struct {
 	Draft  string
 	Notice string
 	Latest bool
+	Nonce  string
 }
 
 // registerChatRoutes добавляет список совпадений, просмотр переписки, отправку сообщений и удаление чата.
@@ -36,6 +38,31 @@ func registerChatRoutes(mux *http.ServeMux, store *postgres.Store) {
 			before = 0
 		}
 		renderConversation(w, r, store, viewer.Username, before, http.StatusOK, "", "")
+	}))
+
+	// Отмечает показанное в обновлённой истории входящее сообщение прочитанным.
+	mux.HandleFunc("POST /chats/{id}/read", withSession(store, func(w http.ResponseWriter, r *http.Request, viewer postgres.Viewer) {
+		id := r.PathValue("id")
+		if !publicProfileID.MatchString(id) {
+			http.NotFound(w, r)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Не удалось отметить сообщение.", http.StatusBadRequest)
+			return
+		}
+		messageID, err := strconv.ParseInt(r.PostForm.Get("message_id"), 10, 64)
+		if err != nil || messageID < 1 {
+			http.Error(w, "Не удалось отметить сообщение.", http.StatusBadRequest)
+			return
+		}
+		if err := store.MarkChatRead(r.Context(), viewer.Username, id, messageID); err != nil {
+			log.Printf("Сохранение отметки о прочтении: %v", err)
+			http.Error(w, "Отметка о прочтении временно недоступна.", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}))
 
 	registerMessageRoutes(mux, store)
@@ -75,6 +102,17 @@ func renderConversation(w http.ResponseWriter, r *http.Request, store *postgres.
 		log.Printf("Открытие переписки: %v", err)
 		http.Error(w, "Чат временно недоступен.", http.StatusInternalServerError)
 	default:
-		renderPage(w, "chat.html", status, chatPage{Conversation: chat, Draft: draft, Notice: notice, Latest: before == 0})
+		page := chatPage{Conversation: chat, Draft: draft, Notice: notice, Latest: before == 0}
+		if status == http.StatusOK && r.URL.Query().Get("view") == "history" {
+			renderPage(w, "chatHistory", status, page)
+			return
+		}
+		if r.Method == http.MethodGet && status == http.StatusOK && page.Latest && chat.LastIncomingID > 0 {
+			if err := store.MarkChatRead(r.Context(), username, id, chat.LastIncomingID); err != nil {
+				log.Printf("Сохранение отметки о прочтении: %v", err)
+			}
+		}
+		page.Nonce = rand.Text()
+		renderPage(w, "chat.html", status, page)
 	}
 }

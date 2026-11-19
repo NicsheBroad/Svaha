@@ -11,8 +11,10 @@ import (
 var ErrChatUnavailable = errors.New("чат доступен только при взаимном лайке")
 
 type ChatPartner struct {
-	ID        string
-	FirstName string
+	ID           string
+	FirstName    string
+	Unread       int64
+	LastActivity time.Time
 }
 
 type ChatMessage struct {
@@ -25,9 +27,10 @@ type ChatMessage struct {
 }
 
 type Conversation struct {
-	Partner  ChatPartner
-	Messages []ChatMessage
-	BeforeID int64
+	Partner        ChatPartner
+	Messages       []ChatMessage
+	BeforeID       int64
+	LastIncomingID int64
 }
 
 const chatPageSize = 50
@@ -35,11 +38,24 @@ const chatPageSize = 50
 // ChatPartners возвращает список пользователей, с которыми есть взаимный лайк.
 func (s *Store) ChatPartners(ctx context.Context, username string) ([]ChatPartner, error) {
 	rows, err := s.db.QueryContext(ctx, `
-  SELECT u.search_id::text, u.first_name
+  SELECT u.search_id::text, u.first_name,
+         (SELECT count(*) FROM chat_messages AS incoming
+          WHERE incoming.sender = mm.partner AND incoming.recipient = mm.viewer
+            AND incoming.id > COALESCE(cr.last_read_id, 0)),
+         COALESCE(latest.sent_at, GREATEST(own_vote.reviewed_at, their_vote.reviewed_at)) AS last_activity
   FROM mutual_matches AS mm
   JOIN users AS u ON u.username = mm.partner
+  JOIN search_reactions AS own_vote ON own_vote.viewer = mm.viewer AND own_vote.candidate = mm.partner
+  JOIN search_reactions AS their_vote ON their_vote.viewer = mm.partner AND their_vote.candidate = mm.viewer
+  LEFT JOIN chat_reads AS cr ON cr.viewer = mm.viewer AND cr.partner = mm.partner
+  LEFT JOIN LATERAL (
+      SELECT sent_at FROM chat_messages
+      WHERE (sender = mm.viewer AND recipient = mm.partner)
+         OR (sender = mm.partner AND recipient = mm.viewer)
+      ORDER BY id DESC LIMIT 1
+  ) AS latest ON true
   WHERE mm.viewer = $1
-  ORDER BY u.first_name, u.search_id`, username)
+  ORDER BY last_activity DESC, u.first_name, u.search_id`, username)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +64,7 @@ func (s *Store) ChatPartners(ctx context.Context, username string) ([]ChatPartne
 	var partners []ChatPartner
 	for rows.Next() {
 		var partner ChatPartner
-		if err := rows.Scan(&partner.ID, &partner.FirstName); err != nil {
+		if err := rows.Scan(&partner.ID, &partner.FirstName, &partner.Unread, &partner.LastActivity); err != nil {
 			return nil, err
 		}
 		partners = append(partners, partner)
@@ -104,8 +120,36 @@ func (s *Store) OpenConversation(ctx context.Context, username, partnerID string
 		chat.Messages = chat.Messages[:chatPageSize]
 		chat.BeforeID = chat.Messages[chatPageSize-1].ID
 	}
+	for _, message := range chat.Messages {
+		if !message.Own {
+			chat.LastIncomingID = message.ID
+			break
+		}
+	}
 	slices.Reverse(chat.Messages)
 	return chat, nil
+}
+
+// MarkChatRead отмечает видимое входящее сообщение и более ранние сообщения прочитанными.
+func (s *Store) MarkChatRead(ctx context.Context, username, partnerID string, messageID int64) error {
+	tx, partner, err := s.beginProfilePair(ctx, username, partnerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
+  INSERT INTO chat_reads (viewer, partner, last_read_id)
+  SELECT mm.viewer, mm.partner, m.id FROM mutual_matches AS mm
+  JOIN chat_messages AS m ON m.recipient = mm.viewer AND m.sender = mm.partner
+  WHERE mm.viewer = $1 AND mm.partner = $2 AND m.id = $3
+  ON CONFLICT (viewer, partner) DO UPDATE SET last_read_id = EXCLUDED.last_read_id
+  WHERE chat_reads.last_read_id < EXCLUDED.last_read_id`, username, partner, messageID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // DeleteConversation удаляет историю чата и сбрасывает реакции обоих участников.
@@ -136,6 +180,11 @@ func (s *Store) DeleteConversation(ctx context.Context, username, partnerID stri
 	if _, err := tx.ExecContext(ctx, `
   DELETE FROM chat_messages
   WHERE (sender = $1 AND recipient = $2) OR (sender = $2 AND recipient = $1)`, username, partner); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+  DELETE FROM chat_reads
+  WHERE (viewer = $1 AND partner = $2) OR (viewer = $2 AND partner = $1)`, username, partner); err != nil {
 		return err
 	}
 	return tx.Commit()

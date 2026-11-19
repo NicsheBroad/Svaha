@@ -5,8 +5,12 @@ import (
 	"image"
 	"image/png"
 	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"net/textproto"
 	"testing"
+
+	"svaha/internal/postgres"
 )
 
 // TestChatMediaTypes проверяет определение медиафайлов и отклонение текста с поддельным типом.
@@ -60,5 +64,21 @@ func TestChatPhotoUpload(t *testing.T) {
 	}
 	if _, err := readChatAttachment(form.File["attachment"][0], true); err == nil {
 		t.Fatal("фото принято как голосовая запись")
+	}
+}
+
+// TestChatAttachmentPartialResponse проверяет выдачу диапазона для перемотки видео.
+func TestChatAttachmentPartialResponse(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/attachment", nil)
+	request.Header.Set("Range", "bytes=2-5")
+	response := httptest.NewRecorder()
+	serveChatAttachment(response, request,
+		postgres.AttachmentMetadata{Name: "test.mp4", MIME: "video/mp4", Size: 10},
+		bytes.NewReader([]byte("0123456789")), nil)
+	if response.Code != http.StatusPartialContent || response.Body.String() != "2345" {
+		t.Fatalf("неверный ответ на Range: %d %q", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Content-Range") != "bytes 2-5/10" {
+		t.Errorf("неверный Content-Range: %q", response.Header().Get("Content-Range"))
 	}
 }

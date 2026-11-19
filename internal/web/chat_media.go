@@ -113,7 +113,7 @@ func chatAttachmentName(filename, extension string) string {
 }
 
 // serveChatAttachment отдаёт вложение участнику чата с поддержкой скачивания и перемотки.
-func serveChatAttachment(w http.ResponseWriter, r *http.Request, attachment postgres.ChatAttachment, err error) {
+func serveChatAttachment(w http.ResponseWriter, r *http.Request, attachment postgres.AttachmentMetadata, content io.ReadSeeker, err error) {
 	if errors.Is(err, postgres.ErrMessageUnavailable) {
 		http.NotFound(w, r)
 		return
@@ -132,5 +132,5 @@ func serveChatAttachment(w http.ResponseWriter, r *http.Request, attachment post
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": attachment.Name}))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-	http.ServeContent(w, r, attachment.Name, time.Time{}, bytes.NewReader(attachment.Data))
+	http.ServeContent(w, r, attachment.Name, time.Time{}, content)
 }

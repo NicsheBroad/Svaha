@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 )
 
 const maxMessageLength = 2000
+
+var messageNonce = regexp.MustCompile(`^[A-Z2-7]{26,64}$`)
 
 type messageEditPage struct {
 	PartnerID string
@@ -61,8 +64,8 @@ func registerMessageRoutes(mux *http.ServeMux, store *postgres.Store) {
 			http.NotFound(w, r)
 			return
 		}
-		attachment, err := store.MessageAttachment(r.Context(), viewer.Username, id, messageID)
-		serveChatAttachment(w, r, attachment, err)
+		attachment, content, err := store.OpenMessageAttachment(r.Context(), viewer.Username, id, messageID)
+		serveChatAttachment(w, r, attachment, content, err)
 	}))
 }
 
@@ -80,6 +83,11 @@ func sendMessage(w http.ResponseWriter, r *http.Request, store *postgres.Store, 
 	}
 
 	body := strings.TrimSpace(r.PostForm.Get("message"))
+	nonce := r.PostForm.Get("nonce")
+	if !messageNonce.MatchString(nonce) {
+		renderConversation(w, r, store, username, 0, http.StatusBadRequest, body, "Обновите страницу и повторите отправку.")
+		return
+	}
 	voice := r.PostForm.Get("voice") == "yes"
 	var attachment postgres.ChatAttachment
 	if r.MultipartForm != nil {
@@ -104,7 +112,7 @@ func sendMessage(w http.ResponseWriter, r *http.Request, store *postgres.Store, 
 		renderConversation(w, r, store, username, 0, http.StatusBadRequest, body, "Введите сообщение до 2000 символов или прикрепите файл.")
 		return
 	}
-	err := store.SendChatMessage(r.Context(), username, id, body, attachment)
+	err := store.SendChatMessage(r.Context(), username, id, nonce, body, attachment)
 	switch {
 	case errors.Is(err, postgres.ErrChatUnavailable):
 		http.NotFound(w, r)

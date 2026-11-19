@@ -1,0 +1,39 @@
+{{define "chatHistory"}}
+<section class="chat-history" id="chat-history" data-last-incoming="{{.LastIncomingID}}" aria-label="Переписка" aria-live="polite">
+  {{if .BeforeID}}<a href="?before={{.BeforeID}}">Более ранние сообщения</a>{{end}}
+  {{if not .Latest}}<a href="/chats/{{.Partner.ID}}">К последним сообщениям</a>{{end}}
+  {{range .Messages}}
+  <article class="bubble{{if .Own}} own{{end}}" aria-label="{{if .Own}}Ваше сообщение{{else}}Входящее сообщение{{end}}">
+    {{if .Body}}<p>{{.Body}}</p>{{end}}
+    {{if .Attachment.MIME}}
+    <div class="message-media">
+      {{if .Attachment.Voice}}<p>Голосовое сообщение</p>{{end}}
+      {{if eq .Attachment.Kind "image"}}
+      <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment"><img src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" alt="{{.Attachment.Name}}" loading="lazy"></a>
+      {{else if eq .Attachment.Kind "audio"}}
+      <audio src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" controls preload="none" aria-label="{{if .Attachment.Voice}}Голосовое сообщение{{else}}{{.Attachment.Name}}{{end}}"></audio>
+      {{else if eq .Attachment.Kind "video"}}
+      <video src="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment" controls preload="none" playsinline aria-label="{{.Attachment.Name}}"></video>
+      {{end}}
+      <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/attachment?download=1">Скачать {{.Attachment.Name}}</a>
+    </div>
+    {{end}}
+    <time datetime="{{.SentAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.SentAt.Local.Format "02.01.2006 15:04"}}{{if .Edited}} · изменено{{end}}</time>
+    {{if .Own}}
+    <details class="message-actions">
+      <summary>Действия</summary>
+      <a href="/chats/{{$.Partner.ID}}/messages/{{.ID}}/edit">Редактировать</a>
+      <details>
+        <summary>Удалить сообщение</summary>
+        <form method="post" action="/chats/{{$.Partner.ID}}/messages/{{.ID}}/delete">
+          <button type="submit">Удалить у обоих</button>
+        </form>
+      </details>
+    </details>
+    {{end}}
+  </article>
+  {{else}}
+  <p>Сообщений пока нет.</p>
+  {{end}}
+</section>
+{{end}}

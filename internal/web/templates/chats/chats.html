@@ -9,6 +9,8 @@
     .chats { width: min(100%, 36rem); }
     .chat-list { display: grid; gap: .5rem; padding: 0; margin: 0; list-style: none; }
     .chat-list a { display: block; padding: .75rem 1rem; background: #fcf8fa; border: 1px solid #e8dce5; border-radius: .5rem; overflow-wrap: anywhere; }
+    .unread { display: inline-block; margin-left: .5rem; font-size: .875rem; font-weight: 600; }
+    .chat-list time { display: block; color: #695761; font-size: .8rem; }
     .chat-list a:hover { background: #f3dce8; }
   </style>
 </head>
@@ -18,7 +20,7 @@
     <h1>Чаты</h1>
     {{if .}}
     <ul class="chat-list">
-      {{range .}}<li><a href="/chats/{{.ID}}">{{.FirstName}}</a></li>{{end}}
+      {{range .}}<li><a href="/chats/{{.ID}}">{{.FirstName}}{{if .Unread}}<span class="unread">Непрочитано: {{.Unread}}</span>{{end}}<time datetime="{{.LastActivity.Format "2006-01-02T15:04:05Z07:00"}}">{{.LastActivity.Local.Format "02.01.2006 15:04"}}</time></a></li>{{end}}
     </ul>
     {{else}}
     <p>Здесь появятся чаты с людьми, которые лайкнули вас в ответ.</p>

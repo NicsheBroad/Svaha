@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -13,6 +14,7 @@ import (
 
 // registerAuthRoutes подключает вход, регистрацию и выход из аккаунта.
 func registerAuthRoutes(mux *http.ServeMux, store *postgres.Store) {
+	limiter := &loginLimiter{}
 	// Показывает форму входа.
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		renderPage(w, "login.html", http.StatusOK, "")
@@ -25,7 +27,17 @@ func registerAuthRoutes(mux *http.ServeMux, store *postgres.Store) {
 			return
 		}
 		username := normalize(r.PostForm.Get("username"))
-		ok, err := store.Authenticate(r.Context(), username, r.PostForm.Get("password"))
+		password := r.PostForm.Get("password")
+		if !validUsername(username) || password == "" || !utf8.ValidString(password) {
+			renderPage(w, "login.html", http.StatusUnauthorized, "Неверный логин или пароль.")
+			return
+		}
+		if wait := limiter.allow(time.Now(), r.RemoteAddr, username); wait > 0 {
+			w.Header().Set("Retry-After", strconv.FormatInt(int64((wait+time.Second-1)/time.Second), 10))
+			renderPage(w, "login.html", http.StatusTooManyRequests, "Слишком много попыток входа. Попробуйте позже.")
+			return
+		}
+		ok, err := store.Authenticate(r.Context(), username, password)
 		switch {
 		case err != nil:
 			log.Printf("Проверка входа: %v", err)
@@ -62,7 +74,7 @@ func registerAuthRoutes(mux *http.ServeMux, store *postgres.Store) {
 			return
 		}
 		password := form.Get("password")
-		if user.Username == "" || !utf8.ValidString(user.Username) || strings.ContainsRune(user.Username, 0) ||
+		if !validUsername(user.Username) ||
 			!utf8.ValidString(password) || utf8.RuneCountInString(password) < 8 {
 			renderPage(w, "register.html", http.StatusBadRequest, "Укажите логин. Пароль должен содержать не менее 8 символов.")
 			return
@@ -85,4 +97,9 @@ func registerAuthRoutes(mux *http.ServeMux, store *postgres.Store) {
 // normalize удаляет пробелы по краям и приводит значение к нижнему регистру.
 func normalize(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
+}
+
+// validUsername проверяет, что логин заполнен и может храниться в PostgreSQL.
+func validUsername(username string) bool {
+	return username != "" && utf8.ValidString(username) && !strings.ContainsRune(username, 0)
 }

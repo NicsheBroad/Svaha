@@ -157,6 +157,9 @@ func validateProfile(user postgres.User) string {
 		birthErr != nil || birthDate.Year() < 1 || birthDate.After(time.Now()) {
 		return "Проверьте имя, email и дату рождения."
 	}
+	if !isAdult(birthDate, time.Now()) {
+		return "Svaha доступна с 18 лет."
+	}
 	switch user.Gender {
 	case "female", "male", "other", "undisclosed":
 	default:
@@ -172,6 +175,13 @@ func validateProfile(user postgres.User) string {
 		return "Проверьте длину и содержимое полей анкеты."
 	}
 	return ""
+}
+
+// isAdult сравнивает восемнадцатый день рождения с текущей календарной датой.
+func isAdult(birthDate, now time.Time) bool {
+	year, month, day := now.Date()
+	today := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	return !birthDate.AddDate(18, 0, 0).After(today)
 }
 
 // validProfileText проверяет кодировку, допустимые символы и длину текстового поля.
